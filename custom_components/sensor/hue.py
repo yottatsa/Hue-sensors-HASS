@@ -15,6 +15,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
 
 DEPENDENCIES = ["hue"]
+CUSTOM_DOMAIN = "custom_component.hue"
 
 __version__ = "1.0.3"
 
@@ -128,6 +129,7 @@ async def update_api(api):
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Initialise Hue Bridge connection."""
     data = HueSensorData(hass, async_add_entities)
+    hass.data[CUSTOM_DOMAIN] = data
     await data.async_update_info()
     async_track_time_interval(hass, data.async_update_info, SCAN_INTERVAL)
 
@@ -141,6 +143,7 @@ class HueSensorData(object):
         self.lock = threading.Lock()
         self.data = {}
         self.sensors = {}
+        self.bridges = []
         self.async_add_entities = async_add_entities
 
     async def update_bridge(self, bridge):
@@ -178,14 +181,15 @@ class HueSensorData(object):
         if not locked:
             return
         try:
-            bridges = get_bridges(self.hass)
-            if not bridges:
+            self.bridges = get_bridges(self.hass)
+            if not self.bridges:
                 if now:
                     # periodic task
                     await asyncio.sleep(5)
                 return
             await asyncio.wait(
-                [self.update_bridge(bridge) for bridge in bridges], loop=self.hass.loop
+                [self.update_bridge(bridge) for bridge in self.bridges],
+                loop=self.hass.loop,
             )
         finally:
             self.lock.release()

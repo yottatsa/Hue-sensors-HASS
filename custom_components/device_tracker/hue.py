@@ -31,6 +31,7 @@ from homeassistant.components import zone
 __version__ = "1.0.3"
 
 DEPENDENCIES = ["hue"]
+CUSTOM_DOMAIN = "custom_component.hue"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,12 +119,19 @@ class HueDeviceScanner(DeviceScanner):
 
     async def async_update_info(self, now=None):
         """Get the bridge info."""
-        bridges = get_bridges(self.hass)
-        if not bridges:
-            return
-        await asyncio.wait(
-            [update_api(bridge.api.sensors) for bridge in bridges], loop=self.hass.loop
-        )
+        sensor_data = self.hass.data.get(CUSTOM_DOMAIN)
+        if sensor_data:
+            # using sensors data from the sensor.hue component
+            bridges = sensor_data.bridges
+        else:
+            bridges = get_bridges(self.hass)
+            if not bridges:
+                return
+            await asyncio.wait(
+                [update_api(bridge.api.sensors) for bridge in bridges],
+                loop=self.hass.loop,
+            )
+
         sensors = [
             self.async_see_sensor(sensor)
             for bridge in bridges
